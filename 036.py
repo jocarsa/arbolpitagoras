@@ -4,8 +4,7 @@ import random
 import os
 import time
 
-# Define the recursive function for drawing the tree with progressive depth, gradient color, leaves, and shadow effects
-def draw_branch(x1, y1, angle, depth, thickness, img, out, max_depth, root_color, tip_color, segments=5, leaf_size_range=(5, 10), angle_variation=180):
+def draw_branch(x1, y1, angle, depth, thickness, img, out, max_depth, current_color, tip_color, segments=5, leaf_size_range=(5, 10), angle_variation=180, color_variation=5):
     global frames_written
     if depth > 0 and frames_written < total_frames:  # Stop if we reach the frame limit
         # Calculate the base length, with a slight random variation for each branch
@@ -28,13 +27,12 @@ def draw_branch(x1, y1, angle, depth, thickness, img, out, max_depth, root_color
             if frames_written >= total_frames:
                 break  # Stop if we reach the total frame count
 
-            # Interpolate color for each segment with added randomness
+            # Accumulative color change with random variation
             alpha = ((max_depth - depth) + (i / segments)) / max_depth
-            chaos_color_offset = random.randint(-10, 10)
             current_color = (
-                int((1 - alpha) * root_color[0] + alpha * tip_color[0] + chaos_color_offset),
-                int((1 - alpha) * root_color[1] + alpha * tip_color[1] + chaos_color_offset),
-                int((1 - alpha) * root_color[2] + alpha * tip_color[2] + chaos_color_offset),
+                int((1 - alpha) * current_color[0] + alpha * tip_color[0] + random.randint(-color_variation, color_variation)),
+                int((1 - alpha) * current_color[1] + alpha * tip_color[1] + random.randint(-color_variation, color_variation)),
+                int((1 - alpha) * current_color[2] + alpha * tip_color[2] + random.randint(-color_variation, color_variation))
             )
 
             # Interpolate thickness for smooth transition
@@ -86,11 +84,12 @@ def draw_branch(x1, y1, angle, depth, thickness, img, out, max_depth, root_color
         _, shadow_mask = cv2.threshold(shadow_mask, 1, 255, cv2.THRESH_BINARY)
         img[shadow_mask > 0] = cv2.addWeighted(img, 1 - shadow_alpha, shadow_layer, shadow_alpha, 0)[shadow_mask > 0]
 
-        # Recursively draw child branches
+        # Recursively draw child branches with inherited color
         num_branches = random.randint(1, 4)
         for _ in range(num_branches):
             new_angle = angle + random.randint(-angle_variation, angle_variation)
-            draw_branch(x1, y1, new_angle, depth - 1, target_thickness, img, out, max_depth, root_color, tip_color, segments, leaf_size_range, angle_variation)
+            draw_branch(x1, y1, new_angle, depth - 1, target_thickness, img, out, max_depth, current_color, tip_color, segments, leaf_size_range, angle_variation, color_variation)
+
 
 
 # Create a 'video' directory if it does not exist
@@ -114,11 +113,11 @@ initial_thickness = 50  # Starting thickness
 # Define leaf size range (min, max)
 leaf_size_range = (5, 15)
 
-while frames_written < total_frames:
-    # Initialize a blank white image
-    img = np.zeros((height, width, 3), dtype=np.uint8)
-    img[:] = (0, 0, 0)
+# Initialize a blank white image outside the loop
+img = np.zeros((height, width, 3), dtype=np.uint8)
+img[:] = (0, 0, 0)
 
+while frames_written < total_frames:
     # Initial coordinates, angle, depth, and thickness
     start_x, start_y = width // 2, height - 100
     initial_angle = 90
@@ -133,7 +132,6 @@ while frames_written < total_frames:
 
     # Generate frames for one tree iteration
     draw_branch(start_x, start_y, initial_angle, initial_depth, initial_thickness, img, out, initial_depth, root_color, tip_color, leaf_size_range=leaf_size_range, angle_variation=angle_variation)
-
 # Release video writer and close display window
 out.release()
 cv2.destroyAllWindows()
